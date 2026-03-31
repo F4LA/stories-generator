@@ -1052,22 +1052,19 @@ function drawBulkTexts(ctx, hook, cta, kw, W, H, isBlackBG) {
 }
 
 function drawBulkHL(ctx, line, cx, y, kw, fs, nc, ac) {
-  const replyReg = new RegExp(`^Reply\s+${kw}$`, 'i');
-  const splitReg = new RegExp(`(Reply\s+${kw})`, 'gi');
-  const parts = line.split(splitReg);
-  if (parts.length === 1) { ctx.fillStyle=nc; ctx.fillText(line,cx,y); return; }
-  ctx.font = `500 ${fs}px "DM Sans",sans-serif`;
-  const tw = ctx.measureText(line).width;
-  let x = cx - tw/2;
-  parts.forEach(p => {
-    if (!p) return;
-    const ia = replyReg.test(p.trim());
-    ctx.fillStyle = ia ? ac : nc;
-    ctx.font = ia ? `800 ${fs}px "DM Sans",sans-serif` : `500 ${fs}px "DM Sans",sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.fillText(p, x, y);
-    x += ctx.measureText(p).width;
-  });
+  var marker = 'Reply ' + kw;
+  var idx = line.toLowerCase().indexOf(marker.toLowerCase());
+  if (idx === -1) { ctx.fillStyle=nc; ctx.textAlign='center'; ctx.fillText(line,cx,y); return; }
+  var before = line.substring(0, idx);
+  var match = line.substring(idx, idx + marker.length);
+  var after = line.substring(idx + marker.length);
+  ctx.font = '500 ' + fs + 'px "DM Sans",sans-serif';
+  var tw = ctx.measureText(line).width;
+  var x = cx - tw/2;
+  ctx.textAlign = 'left';
+  if (before) { ctx.fillStyle=nc; ctx.fillText(before,x,y); x+=ctx.measureText(before).width; }
+  ctx.fillStyle=ac; ctx.font='800 '+fs+'px "DM Sans",sans-serif'; ctx.fillText(match,x,y); x+=ctx.measureText(match).width;
+  if (after) { ctx.fillStyle=nc; ctx.font='500 '+fs+'px "DM Sans",sans-serif'; ctx.fillText(after,x,y); }
   ctx.textAlign = 'center';
 }
 
@@ -1352,20 +1349,20 @@ function sbDrawTexts(){
   cl.forEach((line,i)=>sbDrawHL(line,W/2,cy+i*lhC,kw,sz.cta,'#fff','#f4622a'));
 }
 function sbDrawHL(line,cx,y,kw,fs,nc,ac){
-  const c=sbCtx;
-  const replyReg=new RegExp(`^Reply\\s+${kw}$`,'i');
-  const splitReg=new RegExp(`(Reply\\s+${kw})`,'gi');
-  const parts=line.split(splitReg);
-  if(parts.length===1){c.fillStyle=nc;c.fillText(line,cx,y);return;}
-  c.font=`500 ${fs}px "DM Sans",sans-serif`;
-  const tw=c.measureText(line).width;let x=cx-tw/2;
-  parts.forEach(p=>{
-    if(!p)return;
-    const ia=replyReg.test(p.trim());
-    c.fillStyle=ia?ac:nc;
-    c.font=ia?`800 ${fs}px "DM Sans",sans-serif`:`500 ${fs}px "DM Sans",sans-serif`;
-    c.textAlign='left';c.fillText(p,x,y);x+=c.measureText(p).width;
-  });
+  var c=sbCtx;
+  var marker='Reply '+kw;
+  var idx=line.toLowerCase().indexOf(marker.toLowerCase());
+  if(idx===-1){c.fillStyle=nc;c.textAlign='center';c.fillText(line,cx,y);return;}
+  var before=line.substring(0,idx);
+  var match=line.substring(idx,idx+marker.length);
+  var after=line.substring(idx+marker.length);
+  c.font='500 '+fs+'px "DM Sans",sans-serif';
+  var tw=c.measureText(line).width;
+  var x=cx-tw/2;
+  c.textAlign='left';
+  if(before){c.fillStyle=nc;c.fillText(before,x,y);x+=c.measureText(before).width;}
+  c.fillStyle=ac;c.font='800 '+fs+'px "DM Sans",sans-serif';c.fillText(match,x,y);x+=c.measureText(match).width;
+  if(after){c.fillStyle=nc;c.font='500 '+fs+'px "DM Sans",sans-serif';c.fillText(after,x,y);}
   c.textAlign='center';
 }
 function sbWrap(text,maxW){
