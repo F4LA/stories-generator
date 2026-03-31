@@ -912,7 +912,7 @@ async function generateAllStories() {
 
       const hook = hookEl.textContent.trim();
       const cta = ctaEl.textContent.trim();
-      const kw = kwEl ? kwEl.textContent.replace('Reply ','').trim() : '';
+      const kw = kwEl ? kwEl.textContent.replace(/^Reply\s+/i,'').trim() : '';
       const vis = visEl ? visEl.textContent.trim() : '';
       const dayNum = dayNumEl ? dayNumEl.textContent.replace('Day ','').trim() : rowIdx+1;
       const ctaNum = cardIdx + 1;
@@ -1052,14 +1052,16 @@ function drawBulkTexts(ctx, hook, cta, kw, W, H, isBlackBG) {
 }
 
 function drawBulkHL(ctx, line, cx, y, kw, fs, nc, ac) {
-  const parts = line.split(new RegExp(`(Reply ${kw})`, 'gi'));
+  const replyReg = new RegExp(`^Reply\s+${kw}$`, 'i');
+  const splitReg = new RegExp(`(Reply\s+${kw})`, 'gi');
+  const parts = line.split(splitReg);
   if (parts.length === 1) { ctx.fillStyle=nc; ctx.fillText(line,cx,y); return; }
   ctx.font = `500 ${fs}px "DM Sans",sans-serif`;
   const tw = ctx.measureText(line).width;
   let x = cx - tw/2;
   parts.forEach(p => {
     if (!p) return;
-    const ia = p.toLowerCase() === `reply ${kw}`.toLowerCase();
+    const ia = replyReg.test(p.trim());
     ctx.fillStyle = ia ? ac : nc;
     ctx.font = ia ? `800 ${fs}px "DM Sans",sans-serif` : `500 ${fs}px "DM Sans",sans-serif`;
     ctx.textAlign = 'left';
@@ -1070,14 +1072,15 @@ function drawBulkHL(ctx, line, cx, y, kw, fs, nc, ac) {
 }
 
 function wrapBulk(ctx, text, maxW) {
-  const words = text.split(' '), lines = []; let cur = '';
+  const protected_text = text.replace(/Reply\s+(\S+)/gi, 'Reply $1');
+  const words = protected_text.split(' '), lines = []; let cur = '';
   words.forEach(w => {
     const t = cur ? cur+' '+w : w;
     if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur=w; }
     else cur = t;
   });
   if (cur) lines.push(cur);
-  return lines;
+  return lines.map(l => l.replace(/ /g, ' '));
 }
 
 </script>
@@ -1349,13 +1352,15 @@ function sbDrawTexts(){
 }
 function sbDrawHL(line,cx,y,kw,fs,nc,ac){
   const c=sbCtx;
-  const parts=line.split(new RegExp(`(Reply ${kw})`,'gi'));
+  const replyReg=new RegExp(`^Reply\\s+${kw}$`,'i');
+  const splitReg=new RegExp(`(Reply\\s+${kw})`,'gi');
+  const parts=line.split(splitReg);
   if(parts.length===1){c.fillStyle=nc;c.fillText(line,cx,y);return;}
   c.font=`500 ${fs}px "DM Sans",sans-serif`;
   const tw=c.measureText(line).width;let x=cx-tw/2;
   parts.forEach(p=>{
     if(!p)return;
-    const ia=p.toLowerCase()===`reply ${kw}`.toLowerCase();
+    const ia=replyReg.test(p.trim());
     c.fillStyle=ia?ac:nc;
     c.font=ia?`800 ${fs}px "DM Sans",sans-serif`:`500 ${fs}px "DM Sans",sans-serif`;
     c.textAlign='left';c.fillText(p,x,y);x+=c.measureText(p).width;
@@ -1363,12 +1368,16 @@ function sbDrawHL(line,cx,y,kw,fs,nc,ac){
   c.textAlign='center';
 }
 function sbWrap(text,maxW){
-  const words=text.split(' '),lines=[];let cur='';
+  // Protect "Reply X" as unbreakable token
+  const protected_text=text.replace(/Reply\s+(\S+)/gi,'Reply $1');
+  const words=protected_text.split(' '),lines=[];let cur='';
   words.forEach(w=>{
     const t=cur?cur+' '+w:w;
     if(sbCtx.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;
   });
-  if(cur)lines.push(cur);return lines;
+  if(cur)lines.push(cur);
+  // Restore normal spaces
+  return lines.map(l=>l.replace(/ /g,' '));
 }
 function sbDownload(){
   const btn=document.getElementById('sbDownloadBtn');
