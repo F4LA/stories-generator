@@ -1,0 +1,46 @@
+name: Update Photo Manifest
+
+on:
+  push:
+    paths:
+      - 'fotos/**'
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate manifest.json
+        run: |
+          python3 << 'EOF'
+          import os, json
+
+          folders = ['food', 'selfie', 'before-after']
+          manifest = {}
+          skip = ['temp', '.gitkeep']
+
+          for folder in folders:
+            path = f'fotos/{folder}'
+            if os.path.exists(path):
+              files = [f for f in os.listdir(path)
+                       if f not in skip and not f.startswith('.')]
+              manifest[folder] = sorted(files)
+            else:
+              manifest[folder] = []
+
+          with open('fotos/manifest.json', 'w') as f:
+            json.dump(manifest, f, indent=2)
+
+          print("Manifest generado:", manifest)
+          EOF
+
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add fotos/manifest.json
+          git diff --staged --quiet || git commit -m "Update photo manifest"
+          git push
