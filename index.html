@@ -1020,7 +1020,7 @@ function drawCoverImg(ctx, img, W, H) {
 
 function drawBulkTexts(ctx, hook, cta, kw, W, H, isBlackBG) {
   const hookSize = 52, ctaSize = 48;
-  const lhH = hookSize * 1.25, lhC = ctaSize * 1.25;
+  const lhH = hookSize * 1.12, lhC = ctaSize * 1.12;
   const PAD = 80, gap = hookSize * 1.6;
   ctx.textAlign = 'center';
 
@@ -1072,15 +1072,16 @@ function drawBulkHL(ctx, line, cx, y, kw, fs, nc, ac) {
 }
 
 function wrapBulk(ctx, text, maxW) {
-  const protected_text = text.replace(/Reply\s+(\S+)/gi, 'Reply $1');
-  const words = protected_text.split(' '), lines = []; let cur = '';
-  words.forEach(w => {
-    const t = cur ? cur+' '+w : w;
-    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur=w; }
+  var NBSP = String.fromCharCode(160);
+  var safe = text.replace(/Reply ([^ ]+)/gi, 'Reply' + NBSP + '$1');
+  var words = safe.split(' '), lines = [], cur = '';
+  words.forEach(function(w) {
+    var t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; }
     else cur = t;
   });
   if (cur) lines.push(cur);
-  return lines.map(l => l.replace(/ /g, ' '));
+  return lines.map(function(l) { return l.split(NBSP).join(' '); });
 }
 
 </script>
@@ -1327,7 +1328,7 @@ function sbDrawTexts(){
   const lmId=document.getElementById('sbLmSelect').value;
   const kw=SB_LMs[lmId].kw;
   const sz=sbGetSizes();
-  const PAD=80,lhH=sz.hook*1.25,lhC=sz.cta*1.25,gap=sz.hook*1.6;
+  const PAD=80,lhH=sz.hook*1.12,lhC=sz.cta*1.12,gap=sz.hook*1.6;
   const c=sbCtx,W=SB_W,H=SB_H;
   c.textAlign='center';
   if(sbOverlayStyle==='black-text'){
@@ -1368,16 +1369,16 @@ function sbDrawHL(line,cx,y,kw,fs,nc,ac){
   c.textAlign='center';
 }
 function sbWrap(text,maxW){
-  // Protect "Reply X" as unbreakable token
-  const protected_text=text.replace(/Reply\s+(\S+)/gi,'Reply $1');
-  const words=protected_text.split(' '),lines=[];let cur='';
-  words.forEach(w=>{
-    const t=cur?cur+' '+w:w;
-    if(sbCtx.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;
+  var NBSP = String.fromCharCode(160);
+  var safe = text.replace(/Reply ([^ ]+)/gi, 'Reply' + NBSP + '$1');
+  var words = safe.split(' '), lines = [], cur = '';
+  words.forEach(function(w){
+    var t = cur ? cur+' '+w : w;
+    if(sbCtx.measureText(t).width > maxW && cur){ lines.push(cur); cur=w; }
+    else cur=t;
   });
-  if(cur)lines.push(cur);
-  // Restore normal spaces
-  return lines.map(l=>l.replace(/ /g,' '));
+  if(cur) lines.push(cur);
+  return lines.map(function(l){ return l.split(NBSP).join(' '); });
 }
 function sbDownload(){
   const btn=document.getElementById('sbDownloadBtn');
