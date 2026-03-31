@@ -188,10 +188,26 @@
       <h1>Story CTA Calendar</h1>
       <p>2 CTAs per day. Tier 1 opt-in (orange) + Tier 2 free resource (blue). Hit regenerate for a fresh set.</p>
     </div>
-    <button class="generate-btn" onclick="generateMore()">
-      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      Regenerate 30 Days
-    </button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button class="generate-btn" onclick="generateMore()">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Regenerate 30 Days
+      </button>
+      <button class="generate-btn" id="genAllBtn" onclick="generateAllStories()" style="background:#1a4f7a;">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Generate All 30 Stories
+      </button>
+    </div>
+  </div>
+  <div id="genProgress" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+      <span style="font-size:13px;font-weight:600;color:var(--text)" id="genProgressLabel">Generando stories...</span>
+      <span style="font-size:13px;color:var(--muted)" id="genProgressCount">0 / 60</span>
+    </div>
+    <div style="background:var(--surface2);border-radius:100px;height:6px;overflow:hidden;">
+      <div id="genProgressBar" style="background:var(--accent);height:100%;width:0%;transition:width .3s;border-radius:100px;"></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;" id="genProgressSub">Leyendo fotos desde GitHub...</div>
   </div>
   <div class="cal-legend">
     <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>CTA 1 — Tier 1 Opt-in (Blueprint or Meal Prep)</div>
@@ -790,6 +806,280 @@ renderBank();
     else{generateMore();}
   }catch(e){generateMore();}
 })();
+
+// ── BULK STORY GENERATOR ─────────────────────────────────────────────────────
+const GITHUB_BASE = 'https://f4la.github.io/stories-generator';
+const MANIFEST_URL = GITHUB_BASE + '/fotos/manifest.json';
+
+// Map calendar visual labels to folder names
+function visToFolder(vis) {
+  if (!vis) return null;
+  const v = vis.toLowerCase();
+  if (v.includes('food')) return 'food';
+  if (v.includes('photo of you') || v.includes('selfie')) return 'selfie';
+  if (v.includes('before') || v.includes('after')) return 'before-after';
+  return null; // black bg or AI = no photo needed
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function generateAllStories() {
+  const btn = document.getElementById('genAllBtn');
+  const progress = document.getElementById('genProgress');
+  const label = document.getElementById('genProgressLabel');
+  const countEl = document.getElementById('genProgressCount');
+  const bar = document.getElementById('genProgressBar');
+  const sub = document.getElementById('genProgressSub');
+
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  progress.style.display = 'block';
+  label.textContent = 'Leyendo fotos desde GitHub...';
+  sub.textContent = MANIFEST_URL;
+
+  // 1. Load manifest
+  let manifest;
+  try {
+    const res = await fetch(MANIFEST_URL + '?t=' + Date.now());
+    manifest = await res.json();
+  } catch(e) {
+    label.textContent = 'Error al leer manifest.json';
+    sub.textContent = 'Verifica que el GitHub Action corrió correctamente.';
+    btn.disabled = false; btn.style.opacity = '1';
+    return;
+  }
+
+  // 2. Build shuffled pools per folder (cycling if not enough)
+  const pools = {};
+  for (const folder of ['food','selfie','before-after']) {
+    const files = manifest[folder] || [];
+    pools[folder] = files.length ? shuffle(files) : [];
+  }
+  const poolIdx = {food:0, selfie:0, 'before-after':0};
+
+  function getPhoto(folder) {
+    const pool = pools[folder];
+    if (!pool || !pool.length) return null;
+    // Cycle through shuffled pool, reshuffle when exhausted
+    if (poolIdx[folder] >= pool.length) {
+      pools[folder] = shuffle(pool);
+      poolIdx[folder] = 0;
+    }
+    return pools[folder][poolIdx[folder]++];
+  }
+
+  // 3. Extract days from saved calendar HTML
+  const calBody = document.getElementById('calBody');
+  const dayRows = calBody.querySelectorAll('.day-row');
+
+  if (!dayRows.length) {
+    label.textContent = 'No hay calendario generado. Genera el calendario primero.';
+    btn.disabled = false; btn.style.opacity = '1';
+    return;
+  }
+
+  // 4. Setup offscreen canvas
+  const W = 1080, H = 1920;
+  const cvs = document.createElement('canvas');
+  cvs.width = W; cvs.height = H;
+  const ctx = cvs.getContext('2d');
+
+  // 5. Load JSZip dynamically
+  label.textContent = 'Preparando generador...';
+  await loadJSZip();
+  const zip = new JSZip();
+
+  // 6. Collect all CTAs from the calendar
+  const stories = [];
+  dayRows.forEach((row, rowIdx) => {
+    const cards = row.querySelectorAll('.cal-card');
+    cards.forEach((card, cardIdx) => {
+      const hookEl = card.querySelector('.cal-hook');
+      const ctaEl = card.querySelector('.cal-cta-copy');
+      const kwEl = card.querySelector('.cal-kw');
+      const visEl = card.querySelector('.cal-vis, .cal-vis-ai');
+      const lmEl = card.querySelector('.cal-lm');
+      const dayNumEl = row.querySelector('.day-num');
+
+      if (!hookEl || !ctaEl) return;
+
+      const hook = hookEl.textContent.trim();
+      const cta = ctaEl.textContent.trim();
+      const kw = kwEl ? kwEl.textContent.replace('Reply ','').trim() : '';
+      const vis = visEl ? visEl.textContent.trim() : '';
+      const dayNum = dayNumEl ? dayNumEl.textContent.replace('Day ','').trim() : rowIdx+1;
+      const ctaNum = cardIdx + 1;
+      const isBlackBG = vis.toLowerCase().includes('black') || vis.toLowerCase().includes('ai generated');
+      const folder = isBlackBG ? null : visToFolder(vis);
+
+      stories.push({ hook, cta, kw, vis, folder, dayNum, ctaNum, isBlackBG });
+    });
+  });
+
+  const total = stories.length;
+  let done = 0;
+
+  // 7. Generate each story
+  for (const s of stories) {
+    label.textContent = `Generando Day ${s.dayNum} - CTA ${s.ctaNum}...`;
+    countEl.textContent = `${done} / ${total}`;
+    bar.style.width = (done / total * 100) + '%';
+
+    // Draw background
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0e0e0e';
+    ctx.fillRect(0, 0, W, H);
+
+    if (!s.isBlackBG && s.folder) {
+      const photoFile = getPhoto(s.folder);
+      if (photoFile) {
+        const url = `${GITHUB_BASE}/fotos/${s.folder}/${photoFile}`;
+        sub.textContent = `Cargando: ${photoFile}`;
+        try {
+          const img = await loadImg(url);
+          drawCoverImg(ctx, img, W, H);
+        } catch(e) {
+          sub.textContent = `No se pudo cargar: ${photoFile}`;
+        }
+      }
+      // Draw gradient overlay
+      const tg = ctx.createLinearGradient(0,0,0,H*.42);
+      tg.addColorStop(0,'rgba(0,0,0,0.82)');tg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=tg;ctx.fillRect(0,0,W,H*.42);
+      const bg = ctx.createLinearGradient(0,H*.58,0,H);
+      bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(1,'rgba(0,0,0,0.88)');
+      ctx.fillStyle=bg;ctx.fillRect(0,H*.58,W,H*.42);
+    }
+
+    // Draw texts
+    drawBulkTexts(ctx, s.hook, s.cta, s.kw, W, H, s.isBlackBG);
+
+    // Save to zip
+    const blob = await new Promise(res => cvs.toBlob(res, 'image/png'));
+    zip.file(`day${String(s.dayNum).padStart(2,'0')}_cta${s.ctaNum}.png`, blob);
+    done++;
+
+    // Yield to browser
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  // 8. Download ZIP
+  countEl.textContent = `${total} / ${total}`;
+  bar.style.width = '100%';
+  label.textContent = 'Empaquetando ZIP...';
+  sub.textContent = 'Casi listo...';
+
+  const zipBlob = await zip.generateAsync({type:'blob'}, meta => {
+    sub.textContent = `Comprimiendo: ${meta.percent.toFixed(0)}%`;
+  });
+
+  const link = document.createElement('a');
+  link.download = 'drjoey_30_stories.zip';
+  link.href = URL.createObjectURL(zipBlob);
+  link.click();
+
+  label.textContent = '✅ Listo! 30 stories generadas.';
+  sub.textContent = 'Revisa tu carpeta de descargas.';
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+function loadJSZip() {
+  return new Promise((res, rej) => {
+    if (window.JSZip) return res();
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+function loadImg(url) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = url;
+  });
+}
+
+function drawCoverImg(ctx, img, W, H) {
+  const ir = img.width/img.height, cr = W/H;
+  let sx,sy,sw,sh;
+  if(ir>cr){sh=img.height;sw=sh*cr;sx=(img.width-sw)/2;sy=0;}
+  else{sw=img.width;sh=sw/cr;sx=0;sy=(img.height-sh)/2;}
+  ctx.drawImage(img,sx,sy,sw,sh,0,0,W,H);
+}
+
+function drawBulkTexts(ctx, hook, cta, kw, W, H, isBlackBG) {
+  const hookSize = 52, ctaSize = 48;
+  const lhH = hookSize * 1.25, lhC = ctaSize * 1.25;
+  const PAD = 80, gap = hookSize * 1.6;
+  ctx.textAlign = 'center';
+
+  if (isBlackBG) {
+    ctx.font = `500 ${hookSize}px "DM Sans", sans-serif`;
+    const hl = wrapBulk(ctx, hook, W - PAD*2);
+    ctx.font = `500 ${ctaSize}px "DM Sans", sans-serif`;
+    const cl = wrapBulk(ctx, cta, W - PAD*2);
+    const totH = hl.length*lhH + gap + cl.length*lhC;
+    const sy = (H - totH)/2 + hookSize;
+    ctx.fillStyle = '#fff';
+    ctx.font = `500 ${hookSize}px "DM Sans", sans-serif`;
+    hl.forEach((line,i) => ctx.fillText(line, W/2, sy + i*lhH));
+    const cy = sy + hl.length*lhH + gap;
+    cl.forEach((line,i) => drawBulkHL(ctx, line, W/2, cy+i*lhC, kw, ctaSize, '#fff', '#f4622a'));
+    return;
+  }
+
+  ctx.fillStyle = '#fff';
+  ctx.font = `500 ${hookSize}px "DM Sans", sans-serif`;
+  const hl = wrapBulk(ctx, hook, W - PAD*2);
+  const hy = H*0.08 + hookSize;
+  hl.forEach((line,i) => ctx.fillText(line, W/2, hy + i*lhH));
+
+  ctx.font = `500 ${ctaSize}px "DM Sans", sans-serif`;
+  const cl = wrapBulk(ctx, cta, W - PAD*2);
+  const cy = H - H*0.06 - cl.length*lhC;
+  cl.forEach((line,i) => drawBulkHL(ctx, line, W/2, cy+i*lhC, kw, ctaSize, '#fff', '#f4622a'));
+}
+
+function drawBulkHL(ctx, line, cx, y, kw, fs, nc, ac) {
+  const parts = line.split(new RegExp(`(Reply ${kw})`, 'gi'));
+  if (parts.length === 1) { ctx.fillStyle=nc; ctx.fillText(line,cx,y); return; }
+  ctx.font = `500 ${fs}px "DM Sans",sans-serif`;
+  const tw = ctx.measureText(line).width;
+  let x = cx - tw/2;
+  parts.forEach(p => {
+    if (!p) return;
+    const ia = p.toLowerCase() === `reply ${kw}`.toLowerCase();
+    ctx.fillStyle = ia ? ac : nc;
+    ctx.font = ia ? `800 ${fs}px "DM Sans",sans-serif` : `500 ${fs}px "DM Sans",sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(p, x, y);
+    x += ctx.measureText(p).width;
+  });
+  ctx.textAlign = 'center';
+}
+
+function wrapBulk(ctx, text, maxW) {
+  const words = text.split(' '), lines = []; let cur = '';
+  words.forEach(w => {
+    const t = cur ? cur+' '+w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur=w; }
+    else cur = t;
+  });
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 </script>
 
 <div id="page-builder">
