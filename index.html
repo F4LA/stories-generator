@@ -499,71 +499,71 @@ function pickTier2(){
 }
 const CAL_VISUALS={
   blueprint:[
-    'Black bg / white text',  // restart cycle
-    'AI generated image',     // you think you're the problem — crumbling plan visual
-    'Client before/after',    // results you keep forever
-    'Black bg / white text',  // the 5 pillars
-    'AI generated image',     // one sentence — lightbulb moment
-    'Photo of you',           // PhD backed
-    'Client before/after',    // every transformation starts here
-    'Photo of you',           // why I built this
-    'AI generated image',     // habit anatomy — brain/neural loop
-    'Black bg / white text',  // no fluff
+    'Black bg / white text',
+    'AI generated image',
+    'Client before/after',
+    'Black bg / white text',
+    'AI generated image',
+    'Photo of you',
+    'Client before/after',
+    'Photo of you',
+    'AI generated image',
+    'Black bg / white text',
   ],
   mealprep:[
-    'Food photo',             // prep takes too long
-    'AI generated image',     // boredom kills — boring vs vibrant meals
-    'Food photo',             // healthy food tastes like nothing
-    'Black bg / white text',  // simple enough
-    'Food photo',             // 8 meals from one session
-    'AI generated image',     // skip the fresh aisle — fresh vs frozen split
-    'Photo of you',           // protein rule
-    'Client before/after',    // what consistent clients do
-    'Food photo',             // how we eat at home
-    'Black bg / white text',  // the formula
-    'Food photo',             // simple offer
+    'Food photo',
+    'AI generated image',
+    'Food photo',
+    'Black bg / white text',
+    'Food photo',
+    'AI generated image',
+    'Photo of you',
+    'Client before/after',
+    'Food photo',
+    'Black bg / white text',
+    'Food photo',
   ],
   workout:[
-    'Photo of you',           // no real plan
-    'Photo of you',           // going through the motions
-    'AI generated image',     // train with intention — physique silhouette
-    'Black bg / white text',  // why machines
-    'Photo of you',           // science behind every choice
-    'Client before/after',    // what my clients follow
-    'AI generated image',     // intensity is everything — forearms/barbell grip
-    'Photo of you',           // my exact split
+    'Photo of you',
+    'Photo of you',
+    'AI generated image',
+    'Black bg / white text',
+    'Photo of you',
+    'Client before/after',
+    'AI generated image',
+    'Photo of you',
   ],
   progression:[
-    'AI generated image',     // you're just guessing — confused vs systematic
-    'Black bg / white text',  // same weights for months
-    'Photo of you',           // never guess again
-    'AI generated image',     // the missing piece — staircase visual
-    'Photo of you',           // what I use with every client
-    'Client before/after',    // clients who were stuck
-    'AI generated image',     // what progressive overload means — muscle fiber
-    'Black bg / white text',  // stop plateauing
+    'AI generated image',
+    'Black bg / white text',
+    'Photo of you',
+    'AI generated image',
+    'Photo of you',
+    'Client before/after',
+    'AI generated image',
+    'Black bg / white text',
   ],
   habits:[
-    'Photo of you',           // willpower runs out
-    'AI generated image',     // health always gets sacrificed — balance scale
-    'Photo of you',           // fitness on autopilot
-    'Black bg / white text',  // 7 specific things
-    'Photo of you',           // PhD dad entrepreneur
-    'Client before/after',    // busy clients who do it
-    'Photo of you',           // my actual week
-    'AI generated image',     // 7 habits free — 7 glowing checkmarks
+    'Photo of you',
+    'AI generated image',
+    'Photo of you',
+    'Black bg / white text',
+    'Photo of you',
+    'Client before/after',
+    'Photo of you',
+    'AI generated image',
   ],
   '20lbs':[
-    'AI generated image',     // crash diets backfire — body composition split
-    'Black bg / white text',  // eating less is not enough
-    'Client before/after',    // 20 lbs the right way
-    'AI generated image',     // a system that lasts — 90-day calendar
-    'AI generated image',     // why faster backfires — metabolism graphs
-    'Photo of you',           // framework I use
-    'Client before/after',    // real transformations
-    'Black bg / white text',  // two variables
-    'Black bg / white text',  // pick a date
-    'Black bg / white text',  // 5 steps
+    'AI generated image',
+    'Black bg / white text',
+    'Client before/after',
+    'AI generated image',
+    'AI generated image',
+    'Photo of you',
+    'Client before/after',
+    'Black bg / white text',
+    'Black bg / white text',
+    'Black bg / white text',
   ],
 };
 function getCalVisual(lm,angleIdx){
@@ -572,7 +572,6 @@ function getCalVisual(lm,angleIdx){
 }
 function generateDays(count){
   const days=[];
-  const FORMATS=['Black bg / white text','Photo of you','Food photo','Client before/after'];
   for(let i=0;i<count;i++){
     const lm1=pickTier1();
     const a1idx=pickAngleIdx(lm1);
@@ -640,6 +639,7 @@ function renderPeriod(days,pNum){
   return html;
 }
 
+// ── KEY CHANGE: save to localStorage after generating ──
 function generateMore(){
   document.getElementById('calBody').innerHTML='';
   periodCount=0;
@@ -647,7 +647,39 @@ function generateMore(){
   lastTier1Id=null;lastTier2Id=null;
   periodCount++;
   document.getElementById('calBody').insertAdjacentHTML('beforeend',renderPeriod(generateDays(30),periodCount));
+  try{localStorage.setItem('drjoeycal_html',document.getElementById('calBody').innerHTML);}catch(e){}
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function copyPrompt(id,btn){
+  const text=document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='Copy prompt';btn.classList.remove('copied');},2000);
+  });
+}
+function copyCalCTA(id,btn){
+  const el=document.getElementById(id);
+  if(!el)return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(()=>{
+    btn.textContent='Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='Copy CTA';btn.classList.remove('copied');},2000);
+  });
+}
+function switchLM(id){curLM=id;curFilter='All';renderBank();}
+function setFilter(c){
+  curFilter=c;
+  const lm=getLM(curLM);
+  const cats=['All',...new Set(lm.angles.map(a=>a.cat))];
+  document.getElementById('filterRow').innerHTML=`<span class="filter-label">Filter by angle:</span>`+
+    cats.map(c2=>`<button class="filter-btn ${c2===curFilter?'on':''}" onclick="setFilter('${c2}')">${c2}</button>`).join('');
+  renderCards(lm);
+}
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
 }
 
 let curLM='blueprint',curFilter='All';
@@ -701,39 +733,16 @@ function renderCards(lm){
   }).join('');
 }
 
-function copyPrompt(id,btn){
-  const text=document.getElementById(id).textContent;
-  navigator.clipboard.writeText(text).then(()=>{
-    btn.textContent='Copied!';btn.classList.add('copied');
-    setTimeout(()=>{btn.textContent='Copy prompt';btn.classList.remove('copied');},2000);
-  });
-}
-function copyCalCTA(id,btn){
-  const el=document.getElementById(id);
-  if(!el)return;
-  navigator.clipboard.writeText(el.textContent.trim()).then(()=>{
-    btn.textContent='Copied!';btn.classList.add('copied');
-    setTimeout(()=>{btn.textContent='Copy CTA';btn.classList.remove('copied');},2000);
-  });
-}
-function switchLM(id){curLM=id;curFilter='All';renderBank();}
-function setFilter(c){
-  curFilter=c;
-  const lm=getLM(curLM);
-  const cats=['All',...new Set(lm.angles.map(a=>a.cat))];
-  document.getElementById('filterRow').innerHTML=`<span class="filter-label">Filter by angle:</span>`+
-    cats.map(c2=>`<button class="filter-btn ${c2===curFilter?'on':''}" onclick="setFilter('${c2}')">${c2}</button>`).join('');
-  renderCards(lm);
-}
-function showPage(id,el){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  el.classList.add('active');
-}
-
 renderBank();
-generateMore();
+
+// ── KEY CHANGE: load saved calendar on startup, only generate if nothing saved ──
+(function(){
+  try{
+    var saved=localStorage.getItem('drjoeycal_html');
+    if(saved){document.getElementById('calBody').innerHTML=saved;}
+    else{generateMore();}
+  }catch(e){generateMore();}
+})();
 </script>
 </body>
 </html>
