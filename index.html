@@ -936,7 +936,7 @@ async function generateAllStories() {
 
     // Draw background
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#0e0e0e';
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, W, H);
 
     if (!s.isBlackBG && s.folder) {
@@ -1021,7 +1021,7 @@ function drawBulkStacked(ctx, img, hook, cta, kw, W, H) {
   const lhH = hookSize * 1.22, lhC = ctaSize * 1.22;
   const LINE_GAP = 6;
   const LINE_R = 14;
-  const BG_COLOR = 'rgba(0,0,0,0.88)';
+  const BG_COLOR = 'rgba(0,0,0,1)';
   const SAFE_TOP = 270, SAFE_BOT = 270;
   const PHOTO_H = H * 0.57 + 30;
   const PHOTO_Y = (H - PHOTO_H) / 2;
@@ -1371,7 +1371,7 @@ function sbLoadImage(dataURL){
 function sbRenderPreview(){
   if(!sbCtx)return;
   sbCtx.clearRect(0,0,SB_W,SB_H);
-  sbCtx.fillStyle='#0e0e0e';sbCtx.fillRect(0,0,SB_W,SB_H);
+  sbCtx.fillStyle='#000000';sbCtx.fillRect(0,0,SB_W,SB_H);
   if(sbOverlayStyle==='stacked'){sbDrawStacked();return;}
   if(sbOverlayStyle!=='black-text'){
     if(sbUserImage){sbDrawCover();}
@@ -1419,7 +1419,7 @@ function sbDrawStacked(){
   const cl=sbWrap(ctaRaw, TEXT_W);
 
   // Black background
-  c.fillStyle='#0e0e0e';
+  c.fillStyle='#000000';
   c.fillRect(0,0,W,H);
 
   // --- Photo block (rectangular, centered, with side margins) ---
@@ -1487,7 +1487,7 @@ function sbDrawStacked(){
   }
 
   const LINE_R = 14; // corner radius per line
-  const BG_COLOR = 'rgba(0,0,0,0.88)';
+  const BG_COLOR = 'rgba(0,0,0,1)';
   const LINE_GAP = 6; // extra gap between lines
 
   // --- Hook lines (above photo, centered in area between safe top and photo) ---
