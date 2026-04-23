@@ -1132,6 +1132,7 @@ function wrapBulk(ctx, text, maxW) {
           <button class="sb-toggle-btn" data-style="solid-top" onclick="sbSetStyle(this)">Solid boxes</button>
           <button class="sb-toggle-btn" data-style="dark" onclick="sbSetStyle(this)">Dark overlay</button>
           <button class="sb-toggle-btn" data-style="black-text" onclick="sbSetStyle(this)">Black BG</button>
+          <button class="sb-toggle-btn" data-style="stacked" onclick="sbSetStyle(this)">Stacked</button>
         </div>
       </div>
       <div class="sb-section">
@@ -1279,6 +1280,7 @@ function sbRenderPreview(){
   if(!sbCtx)return;
   sbCtx.clearRect(0,0,SB_W,SB_H);
   sbCtx.fillStyle='#0e0e0e';sbCtx.fillRect(0,0,SB_W,SB_H);
+  if(sbOverlayStyle==='stacked'){sbDrawStacked();return;}
   if(sbOverlayStyle!=='black-text'){
     if(sbUserImage){sbDrawCover();}
     else{
@@ -1293,6 +1295,64 @@ function sbRenderPreview(){
     }
   }
   sbDrawOverlay();sbDrawTexts();
+}
+
+function sbDrawStacked(){
+  const c=sbCtx,W=SB_W,H=SB_H;
+  const hookRaw=document.getElementById('sbHookText').value;
+  const ctaRaw=document.getElementById('sbCtaText').value;
+  const lmId=document.getElementById('sbLmSelect').value;
+  const kw=SB_LMs[lmId].kw;
+  const sz=sbGetSizes();
+  const PAD=72,lhH=sz.hook*1.18,lhC=sz.cta*1.18;
+
+  // Measure text to size blocks dynamically
+  c.font=`500 ${sz.hook}px "DM Sans",sans-serif`;
+  const hl=sbWrap(hookRaw,W-PAD*2);
+  c.font=`500 ${sz.cta}px "DM Sans",sans-serif`;
+  const cl=sbWrap(ctaRaw,W-PAD*2);
+
+  const hookBlockH=Math.max(hl.length*lhH+PAD*1.8, H*0.28);
+  const ctaBlockH =Math.max(cl.length*lhC +PAD*1.8, H*0.28);
+  const photoBlockH=H-hookBlockH-ctaBlockH;
+
+  // 1 — Hook block
+  c.fillStyle='#0e0e0e';
+  c.fillRect(0,0,W,hookBlockH);
+
+  // 2 — Photo block
+  if(sbUserImage){
+    const img=sbUserImage;
+    const cr=W/photoBlockH;
+    const ir=img.width/img.height;
+    let sx,sy,sw,sh;
+    if(ir>cr){sh=img.height;sw=sh*cr;sx=(img.width-sw)/2;sy=0;}
+    else{sw=img.width;sh=sw/cr;sx=0;sy=(img.height-sh)/2;}
+    c.drawImage(img,sx,sy,sw,sh,0,hookBlockH,W,photoBlockH);
+  } else {
+    c.fillStyle='#1a1a1a';c.fillRect(0,hookBlockH,W,photoBlockH);
+    c.fillStyle='#2a2a2a';
+    for(let i=0;i<W;i+=60)c.fillRect(i,hookBlockH,1,photoBlockH);
+    for(let j=hookBlockH;j<hookBlockH+photoBlockH;j+=60)c.fillRect(0,j,W,1);
+    c.fillStyle='#444';c.font=`500 38px "DM Sans",sans-serif`;c.textAlign='center';
+    c.fillText('Upload your photo',W/2,hookBlockH+photoBlockH/2);
+  }
+
+  // 3 — CTA block
+  const ctaY=hookBlockH+photoBlockH;
+  c.fillStyle='#0e0e0e';
+  c.fillRect(0,ctaY,W,ctaBlockH);
+
+  // Hook text centered in hook block
+  c.fillStyle='#fff';c.textAlign='center';
+  c.font=`500 ${sz.hook}px "DM Sans",sans-serif`;
+  const hookTextY=(hookBlockH-hl.length*lhH)/2+sz.hook;
+  hl.forEach((line,i)=>c.fillText(line,W/2,hookTextY+i*lhH));
+
+  // CTA text centered in cta block
+  c.font=`500 ${sz.cta}px "DM Sans",sans-serif`;
+  const ctaTextY=ctaY+(ctaBlockH-cl.length*lhC)/2+sz.cta;
+  cl.forEach((line,i)=>sbDrawHL(line,W/2,ctaTextY+i*lhC,kw,sz.cta,'#fff','#f4622a'));
 }
 function sbDrawCover(){
   const img=sbUserImage,ir=img.width/img.height,cr=SB_W/SB_H;
